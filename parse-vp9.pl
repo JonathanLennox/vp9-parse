@@ -3,6 +3,9 @@
 $^W = 1;
 use strict;
 
+use lib '.';
+use BitBuffer;
+
 sub t($)
 {
     my ($x) = @_;
@@ -11,50 +14,42 @@ sub t($)
 
 sub parse_payload($)
 {
-    my ($payload) = @_;
-    my $b1 = ord(substr($payload, 0, 1));
+    my ($buf) = @_;
     
-    my $i = t($b1 & 0x80);
-    my $p = t($b1 & 0x40);
-    my $l = t($b1 & 0x20);
-    my $f = t($b1 & 0x10);
-    my $b = t($b1 & 0x08);
-    my $e = t($b1 & 0x04);
-    my $v = t($b1 & 0x02);
-    my $z = t($b1 & 0x01);
+    my $i = $buf->bit();
+    my $p = $buf->bit();
+    my $l = $buf->bit();
+    my $f = $buf->bit();
+    my $b = $buf->bit();
+    my $e = $buf->bit();
+    my $v = $buf->bit();
+    my $z = $buf->bit();
 
     my $ret = "i=$i p=$p l=$l v=$f b=$b e=$e v=$v z=$z";
 
-    my $of = 1;
-    
     if ($i) {
-        my $m = t(ord(substr($payload, $of, 1)) & 0x80);
+        my $m = $buf->bit();
         if ($m) {
-            my $pid = unpack("n", substr($payload, $of, 2)) & 0x7fff;
+            my $pid = $buf->bits(15);
             $ret .= " pid=$pid/15";
-            $of += 2;
         }
         else {
-            my $pid = ord(substr($payload, $of, 2)) & 0x7f;
+            my $pid = $buf->bits(7);
             $ret .= " pid=$pid/7";
-            $of += 1;
         }
     }
 
     if ($l) {
-        my $lb = ord(substr($payload, $of, 1));
-        my $tid = ($lb & 0xe0) >> 5;
-        my $u = t($lb & 0x10);
-        my $sid = ($lb & 0x0e) >> 1;
-        my $d = t($lb & 0x01);
+        my $tid = $buf->bits(3);
+        my $u = $buf->bit();
+        my $sid = $buf->bits(3);
+        my $d = $buf->bit();
 
         $ret .= " tid=$tid u=$u sid=$sid d=$d";
 
-        $of += 1;
         if (!$f) {
-            my $tl0picidx = ord(substr($payload, $of, 1));
+            my $tl0picidx = $buf->bits(8);
             $ret .= " tl0picidx=$tl0picidx";
-            $of += 1;
         }
     }
 
@@ -63,52 +58,47 @@ sub parse_payload($)
         my $first = 1;
         my $n;
         do {
-            my $pn = ord(substr($payload, $of, 1));
-            my $pdiff = $pn >> 1;
-            $n = t($pn & 0x01);
+            my $pdiff = buf->bits(7);
+            $n = buf->bit();
             if (!$first) {
                 $ret .= "/";
             }
             $ret .= $pdiff;
             $first = 0;
-            $of++;
         } while ($n);
     }
 
     if ($v) {
         $ret .= " SS=[";
-        my $s1 = ord(substr($payload, $of, 1));
-        my $ns = ($s1 & 0xe0) >> 5;
-        my $y = t($s1 & 0x10);
-        my $g = t($s1 & 0x08);
+        my $ns = $buf->bits(3);
+        my $y = $buf->bit();
+        my $g = $buf->bit();
+        $buf->skipbits(3);
 
         $ret .= $ns + 1 . " lyrs";
-        $of++;
         if ($y) {
             $ret .= ":";
             my $first = 1;
             for (0..$ns) {
-                my ($width, $height) = unpack("nn", substr($payload, $of, 4));
+                my $width = $buf->bits(16);
+                my $height = $buf->bits(16);
                 if (!$first) {
                     $ret .= "/";
                 }
                 $ret .= "${width}x${height}";
                 $first = 0;
-                $of += 4;
             }
         }
 
         if ($g) {
-            my $ng = ord(substr($payload, $of, 1));
-            $of += 1;
+            my $ng = $buf->bits(8);
             my $first_g = 1;
             $ret .= ";PG=$ng:";
             for (0..$ng-1) {
-                my $gh = ord(substr($payload, $of, 1));
-                $of++;
-                my $tid = ($gh & 0xe0) >> 5;
-                my $u = t($gh & 0x10);
-                my $r = ($gh & 0x0c) >> 2;
+                my $tid = $buf->bits(3);
+                my $u = $buf->bit();
+                my $r = $buf->bits(2);
+                $buf->skipbits(2);
                 if (!$first_g) {
                     $ret .= ";"
                 }
@@ -119,8 +109,7 @@ sub parse_payload($)
                 $ret .= ":";
                 my $first_diff = 1;
                 for (0..$r-1) {
-                    my $pdiff = ord(substr($payload, $of, 1));
-                    $of++;
+                    my $pdiff = $buf->bits(8);
                     if (!$first_diff) {
                         $ret .= '-';
                     }
@@ -132,8 +121,8 @@ sub parse_payload($)
         }
         $ret .= "]";
     }
-    
-    $ret .= " payload=" . unpack("H*", substr($payload, $of));
+
+    $ret .= " payload=" . unpack("H*", substr($buf->buffer(), $buf->byte_offset()));
 
     return $ret;
 }
@@ -143,7 +132,9 @@ while (<>) {
         my $header_desc = $1;
         my $payload = pack("H*", $2);
 
-        my $payload_desc = parse_payload($payload);
+        my $buffer = new BitBuffer(buffer => $payload);
+
+        my $payload_desc = parse_payload($buffer);
 
         print "$header_desc $payload_desc\n";
     }
