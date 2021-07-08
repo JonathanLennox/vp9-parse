@@ -133,6 +133,8 @@ sub parse_payload($)
         $ret .= "]";
     }
     
+    $ret .= " payload=" . unpack("H*", substr($payload, $of));
+
     return $ret;
 }
 
