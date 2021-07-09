@@ -168,6 +168,8 @@ sub parse_vp9($)
     7 => "CS_RGB"
 );
 
+$::LAST_FRAME = 1;
+
 sub parse_uncompressed_header($)
 {
     my ($buf) = @_;
@@ -237,7 +239,7 @@ sub parse_uncompressed_header($)
             for (my $i = 0; $i < 3; $i++) {
                 my $ref_frame_idx = $buf->bits(3);
                 my $ref_frame_sign_bias = $buf->bit();
-                $ret .= " ref_frame_idx[$i]=$ref_frame_idx ref_frame_sign_bias[LF+$i]=$ref_frame_sign_bias";
+                $ret .= " ref_frame_idx[$i]=$ref_frame_idx ref_frame_sign_bias[" . ($::LAST_FRAME + $i) . "]=$ref_frame_sign_bias";
             }
             $ret .= parse_frame_size_with_refs($buf);
 
