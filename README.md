@@ -2,3 +2,5 @@
 Quick and dirty VP9 RTP parser for debugging VP9 bitstreams.
 
 Operates on the output of `rtpdump -F hex` from [rtptools](https://github.com/irtlab/rtptools).
+
+Wireshark can output rtpdump-format files from the "Telephony / RTP / RTP Streams / Export..." menu.

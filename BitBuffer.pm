@@ -14,7 +14,7 @@ sub bit {
     my $bitidx = $off % 8;
 
     die "offset $off invalid in buffer of length $buflen" if $bufidx >= $buflen;
-    
+
     my $mask = 1 << (7 - $bitidx);
     my $byte = ord(substr($self->{buffer}, $bufidx, 1));
 
@@ -38,7 +38,7 @@ sub bits($) {
     my ($self, $bits) = @_;
 
     my $ret = 0;
-    
+
     # Could optimize this
     for (0..$bits-1) {
         $ret <<= 1;
