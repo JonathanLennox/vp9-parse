@@ -532,7 +532,7 @@ sub read_prob($) {
 }
 
 while (<>) {
-    if (/ *(.*) data=([a-z0-9]*)/) {
+    if (/ *(.*) data=([a-z0-9]*)/i) {
         my $header_desc = $1;
         my $payload = pack("H*", $2);
 
